@@ -1,8 +1,4 @@
-import type { ComponentProps } from 'react';
-import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { Backdrop } from '@/theme';
-
-export type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
 export const CATEGORIES = ['Furniture', 'Home', 'Tech', 'Kids', 'Tools', 'Outdoor', 'Clothing'] as const;
 export type Category = (typeof CATEGORIES)[number];
@@ -10,9 +6,13 @@ export type Category = (typeof CATEGORIES)[number];
 export const CONDITIONS = ['New', 'Like new', 'Good', 'Fair'] as const;
 export type Condition = (typeof CONDITIONS)[number];
 
+/** An Unsplash photo id, e.g. "1555041469-a586c61ea9bc". See `photoUrl`. */
+export type PhotoId = string;
+
 export interface Seller {
   id: string;
   name: string;
+  photo: PhotoId;
   neighborhood: string;
   rating: number;
   trades: number;
@@ -28,17 +28,37 @@ export interface Listing {
   category: Category;
   condition: Condition;
   description: string;
-  distance: number;
-  hoursAgo: number;
-  sellerId: string;
-  icon: IconName;
+  photo: PhotoId;
+  /** Color shown while the photo loads. */
   backdrop: Backdrop;
+  distance: number;
+  street?: string;
+  minutesAgo: number;
+  sellerId: string;
+  /** People looking at the listing right now. */
+  lookingNow?: number;
+  /** A short personal note from the seller. */
+  note?: string;
+  /** Id of a collection (e.g. a moving sale) this item belongs to. */
+  collection?: string;
   bulky?: boolean;
   ships?: boolean;
   /** Set when the item is outside the local area and only available by shipping. */
   shipsFrom?: string;
   dimensions?: string;
   watchers: number;
+}
+
+export interface Collection {
+  id: string;
+  kind: 'moving' | 'edit';
+  title: string;
+  subtitle: string;
+  sellerId?: string;
+  badge: string;
+  listingIds: string[];
+  /** For edits: a bundle price for everything together. */
+  bundlePrice?: number;
 }
 
 export type OrderStatus = 'offer' | 'reserved' | 'completed' | 'cancelled';
@@ -71,7 +91,7 @@ export interface Draft {
   priceLow: number;
   priceHigh: number;
   description: string;
-  icon: IconName;
+  photo: PhotoId;
   backdrop: Backdrop;
   dimensions?: string;
   bulky: boolean;

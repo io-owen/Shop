@@ -28,6 +28,7 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="listing/[id]" />
+        <Stack.Screen name="collection/[id]" />
         <Stack.Screen name="reserve/[id]" options={{ presentation: 'modal' }} />
         <Stack.Screen
           name="offer/[id]"

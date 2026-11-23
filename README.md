@@ -17,11 +17,12 @@ Then press `i` for the iOS simulator, `a` for an Android emulator, `w` for the w
 
 | Screen | What it does |
 |---|---|
-| **Browse** | Search, category tabs, a radius you can change (tap "Mission · within 10 mi"), a featured new item, a grid of items **Near you**, and a separate **Ships to you** section for items from other cities. |
-| **Listing** | Large product image, seller trust info (ID verified, rating, trades, reply time), a three-step "How it works", a delivery quote for bulky items, and **Make an offer** / **Reserve** buttons. |
+| **Browse** | A rotating line of what's happening nearby, search, category tabs, a radius you can change (tap "Mission · within 10 mi"), the newest listing as a large featured card, **Maya's moving sale** (one seller's whole apartment), a **Near you** grid with live badges ("New · 4 min", "6 looking now"), a curated **Furnish a studio for $400** pick, and **Ships to you** for items from other cities. Pull down to refresh. |
+| **Collection** | A moving sale or curated pick: the seller, how many people are watching, any bundle discount, and the items. |
+| **Listing** | Swipeable photo gallery (main shot plus two close-ups), "people looking now", a personal note from the seller, a link to the moving sale it's part of, seller trust info, a three-step "How it works", a delivery quote for bulky items, and **Make an offer** / **Reserve** buttons. |
 | **Reserve** | Pickup or delivery, a time slot, a safe meeting spot and the payment breakdown. After the hold is paid you get a QR handoff code. Items that only ship go to a checkout instead. |
 | **Make an offer** | Quick 95 / 90 / 80% amounts, ±$5 steps, and a minimum of 60% of the asking price. |
-| **Sell** | "Take" three photos, then a pretend AI writes the title, category, condition, description and a price based on nearby sales. You edit it and post. |
+| **Sell** | "Take" three photos, then watch a pretend AI write the listing live: the title types itself, the category and condition get picked, the price counts up on a bar of recent nearby sales, and the description types out. You edit it and post, then see neighbors being notified and saving it. |
 | **Deals** | Things you're buying (offer sent, reserved, completed) and offers on your own items, which you can accept or decline. Tap an order to see its QR code, or simulate the seller scanning it. |
 | **You** | Profile, stats, your listings, saved items, account settings. |
 
@@ -37,7 +38,17 @@ All of it is in `src/data/fees.ts`.
 
 The brand is calm and premium: a warm off-white background, deep forest green for actions, **Newsreader** serif for headings and prices, and **Inter** for body text. Colors and fonts live in `src/theme.ts`. Shared components (text styles, buttons, chips, tabs, the seller row) are in `src/components/ui.tsx`.
 
-There are no real photos yet. Each item is drawn as an icon on a soft colored background, like a product shot against a studio backdrop (`ItemImage`). Swap that for `expo-image` once listings have real photos.
+### Photos
+
+Listing photos and seller portraits are free-license images from [Unsplash](https://unsplash.com/license), loaded by id with `expo-image` (see `Photo` and `photoUrl` in `src/components/ui.tsx`). The gallery's close-ups are crops of the same photo, made by Unsplash's image service. A tiny version of each photo loads first so nothing flashes blank.
+
+### Motion
+
+- **Card to listing:** on iOS 18+, the photo zooms into the listing page (`Link.AppleZoom` / `Link.AppleZoomTarget`), and a long press shows a preview of the page (`Link.Preview`).
+- **Saving:** the heart pops and bursts, with a light haptic.
+- **Cards:** they ease down slightly while pressed and fade up in sequence as the feed loads.
+- **Live signals:** pulsing dots for "happening now".
+- **Reserving:** the "It's yours." confirmation springs in, then the QR code.
 
 ## Code layout
 
@@ -49,6 +60,7 @@ src/
     reserve/[id].tsx      Reserve / checkout (modal)
     offer/[id].tsx        Make an offer (bottom sheet)
     order/[id].tsx        Order details and QR code
+    collection/[id].tsx   Moving sale or curated pick
   components/             Shared UI
   data/                   Types, fake data, fee rules
   store.tsx               In-memory app state (React context)

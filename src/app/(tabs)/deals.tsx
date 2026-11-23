@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Button, ItemImage, Row, Rule, T, TextTabs } from '@/components/ui';
+import { Button, Photo, Row, Rule, T, TextTabs } from '@/components/ui';
 import { money } from '@/data/fees';
 import { shortName, statusText, useStore } from '@/store';
 import { colors, space } from '@/theme';
@@ -39,7 +39,7 @@ export default function DealsScreen() {
                     onPress={() => router.push({ pathname: '/order/[id]', params: { id: order.id } })}
                     style={({ pressed }) => [{ paddingVertical: 16 }, pressed && { opacity: 0.6 }]}>
                     <Row gap={14}>
-                      <ItemImage icon={listing.icon} backdrop={listing.backdrop} iconSize={28} radius={12} style={{ width: 64, height: 64 }} />
+                      <Photo id={listing.photo} backdrop={listing.backdrop} width={64} height={64} radius={12} />
                       <View style={{ flex: 1, gap: 3 }}>
                         <T variant="label" color={status.color}>{status.label}</T>
                         <T variant="strong" numberOfLines={1}>{listing.title}</T>
@@ -59,7 +59,7 @@ export default function DealsScreen() {
                   {i > 0 ? <Rule /> : null}
                   <View style={{ paddingVertical: 18, gap: 14 }}>
                     <Row gap={14}>
-                      <ItemImage icon={listing.icon} backdrop={listing.backdrop} iconSize={28} radius={12} style={{ width: 64, height: 64 }} />
+                      <Photo id={listing.photo} backdrop={listing.backdrop} width={64} height={64} radius={12} />
                       <View style={{ flex: 1, gap: 3 }}>
                         <T variant="label">Offer on {listing.title}</T>
                         <T variant="heading">{money(offer.amount)}</T>

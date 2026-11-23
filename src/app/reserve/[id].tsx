@@ -4,9 +4,10 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
+import Animated, { ZoomIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Button, Chip, IconButton, ItemImage, LineItem, Row, Rule, T, TextTabs } from '@/components/ui';
+import { Button, Chip, IconButton, LineItem, Photo, Reveal, Row, Rule, T, TextTabs } from '@/components/ui';
 import { breakdown, money } from '@/data/fees';
 import { pickupSlots, safeSpots } from '@/data/mock';
 import type { Order } from '@/data/types';
@@ -41,20 +42,27 @@ export default function ReserveScreen() {
       <View style={[styles.screen, { paddingBottom: insets.bottom + 20, justifyContent: 'space-between' }]}>
         <View />
         <View style={{ alignItems: 'center', gap: 10 }}>
-          <T variant="label" color={colors.forest}>{fulfilment === 'shipping' ? 'Paid' : 'Reserved'}</T>
-          <T variant="display" style={{ textAlign: 'center' }}>It’s yours.</T>
-          <T variant="body" style={{ textAlign: 'center', color: colors.muted, maxWidth: 300 }}>
-            {listing.title} · {order.slot}{order.spot ? ` · ${order.spot}` : ''}
-          </T>
+          <Animated.View entering={ZoomIn.springify().damping(13)}>
+            <Photo id={listing.photo} backdrop={listing.backdrop} width={72} height={72} radius={36} />
+          </Animated.View>
+          <Reveal delay={120} style={{ alignItems: 'center', gap: 8 }}>
+            <T variant="label" color={colors.forest}>{fulfilment === 'shipping' ? 'Paid' : 'Reserved'}</T>
+            <T variant="display" style={{ textAlign: 'center' }}>It’s yours.</T>
+            <T variant="body" style={{ textAlign: 'center', color: colors.muted, maxWidth: 300 }}>
+              {listing.title} · {order.slot}{order.spot ? ` · ${order.spot}` : ''}
+            </T>
+          </Reveal>
           {fulfilment === 'shipping' ? null : (
             <>
-              <View style={styles.qr}>
+              <Animated.View entering={ZoomIn.delay(380).springify().damping(14)} style={styles.qr}>
                 <QRCode value={`shop-handoff:${order.code}`} size={170} color={colors.ink} backgroundColor="#fff" />
-              </View>
-              <T variant="label">{order.code}</T>
-              <T variant="small" style={{ textAlign: 'center', maxWidth: 260, marginTop: 4 }}>
-                Show this at {fulfilment === 'delivery' ? 'delivery' : 'pickup'}. {shortName(seller.name)} scans it and gets paid.
-              </T>
+              </Animated.View>
+              <Reveal delay={600} style={{ alignItems: 'center', gap: 6 }}>
+                <T variant="label">{order.code}</T>
+                <T variant="small" style={{ textAlign: 'center', maxWidth: 260 }}>
+                  Show this at {fulfilment === 'delivery' ? 'delivery' : 'pickup'}. {shortName(seller.name)} scans it and gets paid.
+                </T>
+              </Reveal>
             </>
           )}
         </View>
@@ -78,7 +86,7 @@ export default function ReserveScreen() {
         </Row>
 
         <Row gap={14} style={{ marginTop: 18 }}>
-          <ItemImage icon={listing.icon} backdrop={listing.backdrop} iconSize={30} radius={12} style={{ width: 64, height: 64 }} />
+          <Photo id={listing.photo} backdrop={listing.backdrop} width={64} height={64} radius={12} />
           <View style={{ flex: 1, gap: 2 }}>
             <T variant="strong">{listing.title}</T>
             <T variant="small">from {shortName(seller.name)} · {seller.neighborhood}</T>

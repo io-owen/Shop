@@ -31,6 +31,8 @@ function useStoreState() {
     activeOrders: orders.filter((o) => o.status === 'reserved' || o.status === 'offer'),
 
     getListing: (id: string) => all.find((l) => l.id === id),
+    getCollection: (id: string) => mock.collections.find((c) => c.id === id),
+    collections: mock.collections,
     getSeller: (id: string): Seller => mock.sellers.find((s) => s.id === id) ?? mock.me,
     getOrder: (id: string) => orders.find((o) => o.id === id),
 
@@ -64,7 +66,7 @@ function useStoreState() {
     publish: (d: Draft) => {
       const listing: Listing = {
         id: makeId(), title: d.title, price: d.price, category: d.category, condition: d.condition,
-        description: d.description, distance: 0, hoursAgo: 0, sellerId: 'me', icon: d.icon,
+        description: d.description, distance: 0, minutesAgo: 0, sellerId: 'me', photo: d.photo,
         backdrop: d.backdrop, bulky: d.bulky, ships: d.ships, dimensions: d.dimensions, watchers: 0,
       };
       setMine((m) => [listing, ...m]);
@@ -90,13 +92,23 @@ export function useStore() {
 export function distanceText(l: Listing) {
   if (l.shipsFrom) return `Ships from ${l.shipsFrom}`;
   if (l.sellerId === 'me') return 'Your listing';
-  return l.distance < 1 ? 'Under 1 mi' : `${Math.round(l.distance)} mi`;
+  const miles = l.distance < 1 ? `${l.distance.toFixed(1)} mi` : `${Math.round(l.distance)} mi`;
+  return l.street ? `${miles} · ${l.street}` : miles;
 }
 
 export function postedText(l: Listing) {
-  if (l.hoursAgo < 1) return 'Just now';
-  if (l.hoursAgo < 24) return `${l.hoursAgo}h ago`;
-  return `${Math.floor(l.hoursAgo / 24)}d ago`;
+  const m = l.minutesAgo;
+  if (m < 1) return 'Just now';
+  if (m < 60) return `${m} min ago`;
+  if (m < 1440) return `${Math.floor(m / 60)}h ago`;
+  return `${Math.floor(m / 1440)}d ago`;
+}
+
+/** Short live signal for a card, or nothing if the listing is quiet. */
+export function liveBadge(l: Listing): string | undefined {
+  if (l.minutesAgo < 60) return `New · ${l.minutesAgo < 1 ? 'just now' : `${l.minutesAgo} min`}`;
+  if ((l.lookingNow ?? 0) >= 3) return `${l.lookingNow} looking now`;
+  return undefined;
 }
 
 export const statusText: Record<OrderStatus, { label: string; color: string }> = {

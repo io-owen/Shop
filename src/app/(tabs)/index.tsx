@@ -1,10 +1,11 @@
 import { Feather } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { EditCard, MovingSaleCard, Ticker } from '@/components/collections';
 import { ListingCard } from '@/components/listing-card';
-import { Row, Rule, T, TextTabs, tap } from '@/components/ui';
+import { Reveal, Row, Rule, T, TextTabs, tap } from '@/components/ui';
 import { CATEGORIES, type Listing } from '@/data/types';
 import { useStore } from '@/store';
 import { colors, fonts, space } from '@/theme';
@@ -14,12 +15,14 @@ type Filter = (typeof FILTERS)[number];
 const RADII = [2, 5, 10, 25];
 
 export default function BrowseScreen() {
-  const { listings } = useStore();
+  const { listings, collections } = useStore();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('All');
   const [radius, setRadius] = useState(10);
+  const [refreshing, setRefreshing] = useState(false);
+  const [tickerOverride, setTickerOverride] = useState<string>();
 
   const contentWidth = Math.min(width, 720) - space.gutter * 2;
   const cardWidth = (contentWidth - 14) / 2;
@@ -27,18 +30,34 @@ export default function BrowseScreen() {
   const matches = listings
     .filter((l) => filter === 'All' || l.category === filter)
     .filter((l) => !query || l.title.toLowerCase().includes(query.toLowerCase()));
-  const local = matches.filter((l) => !l.shipsFrom && l.distance <= radius).sort((a, b) => a.hoursAgo - b.hoursAgo);
+  const local = matches.filter((l) => !l.shipsFrom && l.distance <= radius).sort((a, b) => a.minutesAgo - b.minutesAgo);
   const shipped = matches.filter((l) => l.shipsFrom);
 
-  const showFeatured = !query && filter === 'All' && local.length > 0;
-  const featured = showFeatured ? local[0] : undefined;
-  const grid = showFeatured ? local.slice(1) : local;
+  const home = !query && filter === 'All';
+  const moving = collections.find((c) => c.kind === 'moving');
+  const edit = collections.find((c) => c.kind === 'edit');
+
+  // On the home view the moving sale has its own card, so leave its items out of the grid.
+  const featured = home ? local[0] : undefined;
+  const grid = home ? local.slice(1).filter((l) => l.collection !== moving?.id) : local;
+  const firstRows = home ? grid.slice(0, 4) : grid;
+  const rest = home ? grid.slice(4) : [];
+
+  const refresh = () => {
+    setRefreshing(true);
+    setTimeout(() => {
+      setRefreshing(false);
+      setTickerOverride('You’re up to date · 3 new in the last hour');
+      setTimeout(() => setTickerOverride(undefined), 4000);
+    }, 900);
+  };
 
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.bg }}
-      contentContainerStyle={{ paddingTop: insets.top + 18, paddingBottom: 40, alignItems: 'center' }}
-      keyboardDismissMode="on-drag">
+      contentContainerStyle={{ paddingTop: insets.top + 18, paddingBottom: 48, alignItems: 'center' }}
+      keyboardDismissMode="on-drag"
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.forest} />}>
       <View style={{ width: contentWidth }}>
         <Pressable
           onPress={() => { tap(); setRadius(RADII[(RADII.indexOf(radius) + 1) % RADII.length]); }}
@@ -51,6 +70,9 @@ export default function BrowseScreen() {
         </Pressable>
 
         <T variant="display" style={{ marginTop: 10 }}>Good things,{'\n'}close to home.</T>
+        <View style={{ marginTop: 12 }}>
+          <Ticker override={tickerOverride} />
+        </View>
 
         <View style={styles.search}>
           <Feather name="search" size={17} color={colors.muted} />
@@ -75,20 +97,29 @@ export default function BrowseScreen() {
       </ScrollView>
       <Rule style={{ alignSelf: 'stretch', marginTop: -1 }} />
 
-      <View style={{ width: contentWidth, marginTop: 24, gap: 36 }}>
-        {featured ? <ListingCard listing={featured} width={contentWidth} featured /> : null}
-
-        {grid.length > 0 ? (
-          <Section title="Near you" meta={`${local.length} within ${radius} mi`} listings={grid} cardWidth={cardWidth} />
+      <View style={{ width: contentWidth, marginTop: 24, gap: 40 }}>
+        {featured ? (
+          <Reveal>
+            <ListingCard listing={featured} width={contentWidth} featured />
+          </Reveal>
         ) : null}
 
+        {home && moving ? (
+          <Reveal delay={120}>
+            <MovingSaleCard collection={moving} width={contentWidth} />
+          </Reveal>
+        ) : null}
+
+        {firstRows.length > 0 ? (
+          <Section title="Near you" meta={`${local.length} within ${radius} mi`} listings={firstRows} cardWidth={cardWidth} />
+        ) : null}
+
+        {home && edit ? <EditCard collection={edit} width={contentWidth} /> : null}
+
+        {rest.length > 0 ? <Section title="More nearby" listings={rest} cardWidth={cardWidth} /> : null}
+
         {shipped.length > 0 ? (
-          <Section
-            title="Ships to you"
-            meta="Protected until it arrives"
-            listings={shipped}
-            cardWidth={cardWidth}
-          />
+          <Section title="Ships to you" meta="Protected until it arrives" listings={shipped} cardWidth={cardWidth} />
         ) : null}
 
         {local.length === 0 && shipped.length === 0 ? (
@@ -102,16 +133,20 @@ export default function BrowseScreen() {
   );
 }
 
-function Section({ title, meta, listings, cardWidth }: { title: string; meta: string; listings: Listing[]; cardWidth: number }) {
+function Section({ title, meta, listings, cardWidth }: { title: string; meta?: string; listings: Listing[]; cardWidth: number }) {
   return (
     <View>
       <Row style={{ justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <T variant="heading">{title}</T>
-        <T variant="small">{meta}</T>
+        {meta ? <T variant="small">{meta}</T> : null}
       </Row>
       <Rule style={{ marginTop: 10, marginBottom: 18 }} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 14, rowGap: 28 }}>
-        {listings.map((l) => <ListingCard key={l.id} listing={l} width={cardWidth} />)}
+        {listings.map((l, i) => (
+          <Reveal key={l.id} delay={Math.min(i, 6) * 70}>
+            <ListingCard listing={l} width={cardWidth} />
+          </Reveal>
+        ))}
       </View>
     </View>
   );
@@ -119,7 +154,7 @@ function Section({ title, meta, listings, cardWidth }: { title: string; meta: st
 
 const styles = StyleSheet.create({
   search: {
-    marginTop: 22, height: 50, borderRadius: 14, paddingHorizontal: 16,
+    marginTop: 18, height: 50, borderRadius: 14, paddingHorizontal: 16,
     backgroundColor: colors.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.lineStrong,
     flexDirection: 'row', alignItems: 'center', gap: 10,
   },

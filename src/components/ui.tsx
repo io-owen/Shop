@@ -1,18 +1,28 @@
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import type { ComponentProps, ReactNode } from 'react';
+import { Image } from 'expo-image';
+import { useEffect, type ComponentProps, type ReactNode } from 'react';
 import {
-  Platform, Pressable, StyleSheet, Text, View,
+  PixelRatio, Platform, Pressable, StyleSheet, Text, View,
   type StyleProp, type TextProps, type ViewStyle,
 } from 'react-native';
+import Animated, {
+  Easing, type SharedValue, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withSpring, withTiming,
+} from 'react-native-reanimated';
 
-import type { IconName, Seller } from '@/data/types';
+import type { PhotoId, Seller } from '@/data/types';
 import { backdrops, colors, fonts, hairline, type Backdrop } from '@/theme';
 
 export type FeatherName = ComponentProps<typeof Feather>['name'];
 
+const native = Platform.OS !== 'web';
+
 export function tap() {
-  if (Platform.OS !== 'web') Haptics.selectionAsync();
+  if (native) Haptics.selectionAsync();
+}
+
+export function thump() {
+  if (native) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 }
 
 // ─── Type ──────────────────────────────────────────────────────────────
@@ -46,19 +56,136 @@ export function Row({ children, gap = 8, style }: { children: ReactNode; gap?: n
   return <View style={[{ flexDirection: 'row', alignItems: 'center', gap }, style]}>{children}</View>;
 }
 
-// ─── Product image placeholder ────────────────────────────────────────
+// ─── Photos ────────────────────────────────────────────────────────────
 
-/** A product on a seamless studio backdrop. Stands in for real photos. */
-export function ItemImage({
-  icon, backdrop, iconSize = 56, radius = 18, style,
-}: { icon: IconName; backdrop: Backdrop; iconSize?: number; radius?: number; style?: StyleProp<ViewStyle> }) {
-  const [bg, fg] = backdrops[backdrop];
+export interface Focus { x: number; y: number; zoom: number }
+
+/** Builds an Unsplash image URL sized for the screen. `focus` zooms into part of the photo. */
+export function photoUrl(id: PhotoId, width: number, height?: number, focus?: Focus) {
+  const scale = Math.min(PixelRatio.get(), 3);
+  const w = Math.min(Math.round(width * scale), 1400);
+  let url = `https://images.unsplash.com/photo-${id}?auto=format&q=72&w=${w}`;
+  if (height) url += `&h=${Math.min(Math.round(height * scale), 1800)}&fit=crop`;
+  if (focus) url += `&crop=focalpoint&fp-x=${focus.x}&fp-y=${focus.y}&fp-z=${focus.zoom}`;
+  return url;
+}
+
+export function Photo({
+  id, width, height, backdrop = 'stone', radius = 0, focus, style,
+}: {
+  id: PhotoId; width: number; height: number; backdrop?: Backdrop; radius?: number;
+  focus?: Focus; style?: StyleProp<ViewStyle>;
+}) {
   return (
-    <View style={[{ backgroundColor: bg, borderRadius: radius, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }, style]}>
-      <MaterialCommunityIcons name={icon} size={iconSize} color={fg} />
-      <View style={{ width: iconSize * 0.8, height: Math.max(3, iconSize * 0.07), borderRadius: 99, backgroundColor: fg, opacity: 0.12, marginTop: iconSize * 0.04 }} />
+    <View style={[{ width, height, borderRadius: radius, overflow: 'hidden', backgroundColor: backdrops[backdrop][0] }, style]}>
+      <Image
+        source={{ uri: photoUrl(id, width, height, focus) }}
+        // A tiny version loads almost instantly and is swapped for the sharp one.
+        placeholder={{ uri: photoUrl(id, 40, height ? (40 * height) / width : undefined, focus) }}
+        placeholderContentFit="cover"
+        style={{ width: '100%', height: '100%' }}
+        contentFit="cover"
+        transition={280}
+        cachePolicy="memory-disk"
+      />
     </View>
   );
+}
+
+// ─── Motion bits ───────────────────────────────────────────────────────
+
+/** A small dot that gently pulses, for "happening now" signals. */
+export function LiveDot({ color = colors.forest, size = 7 }: { color?: string; size?: number }) {
+  const pulse = useSharedValue(0);
+  useEffect(() => {
+    pulse.set(withRepeat(withTiming(1, { duration: 1400, easing: Easing.out(Easing.quad) }), -1, false));
+  }, [pulse]);
+  const ring = useAnimatedStyle(() => ({ opacity: 0.45 * (1 - pulse.value), transform: [{ scale: 1 + pulse.value * 1.6 }] }));
+  return (
+    <View style={{ width: size, height: size }}>
+      <Animated.View style={[{ position: 'absolute', width: size, height: size, borderRadius: size, backgroundColor: color }, ring]} />
+      <View style={{ width: size, height: size, borderRadius: size, backgroundColor: color }} />
+    </View>
+  );
+}
+
+/** Frosted pill used on photos: "New · 4 min", "6 looking now". */
+export function LivePill({ text, style }: { text: string; style?: StyleProp<ViewStyle> }) {
+  return (
+    <View style={[styles.livePill, style]}>
+      <LiveDot />
+      <Text style={styles.livePillText}>{text}</Text>
+    </View>
+  );
+}
+
+const BURST = [0, 60, 120, 180, 240, 300];
+
+/** Heart toggle that pops and bursts when you save. */
+export function HeartButton({ saved, onToggle, size = 40 }: { saved: boolean; onToggle: () => void; size?: number }) {
+  const scale = useSharedValue(1);
+  const burst = useSharedValue(0);
+
+  const press = () => {
+    if (!saved) {
+      thump();
+      scale.set(withSequence(withTiming(0.7, { duration: 90 }), withSpring(1, { damping: 6, stiffness: 260 })));
+      burst.set(0);
+      burst.set(withTiming(1, { duration: 520, easing: Easing.out(Easing.cubic) }));
+    } else {
+      tap();
+      scale.set(withSequence(withTiming(0.85, { duration: 80 }), withSpring(1)));
+    }
+    onToggle();
+  };
+
+  const heartStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  return (
+    <Pressable onPress={press} hitSlop={8} accessibilityLabel={saved ? 'Remove from saved' : 'Save'}
+      style={[styles.heart, { width: size, height: size, borderRadius: size / 2 }]}>
+      {BURST.map((deg) => <BurstDot key={deg} angle={deg} progress={burst} />)}
+      <Animated.View style={heartStyle}>
+        <MaterialCommunityIcons name={saved ? 'heart' : 'heart-outline'} size={size * 0.48} color={saved ? colors.danger : colors.ink} />
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+function BurstDot({ angle, progress }: { angle: number; progress: SharedValue<number> }) {
+  const rad = (angle * Math.PI) / 180;
+  const style = useAnimatedStyle(() => {
+    const d = 6 + progress.value * 20;
+    return {
+      opacity: progress.value > 0 && progress.value < 1 ? 1 - progress.value : 0,
+      transform: [{ translateX: Math.cos(rad) * d }, { translateY: Math.sin(rad) * d }, { scale: 1 - progress.value * 0.5 }],
+    };
+  });
+  return <Animated.View pointerEvents="none" style={[styles.burstDot, style]} />;
+}
+
+/** A pressable that eases down slightly while held. Accepts onPress from Link asChild. */
+export function PressScale({ children, onPress, style }: { children: ReactNode; onPress?: () => void; style?: StyleProp<ViewStyle> }) {
+  const s = useSharedValue(1);
+  const anim = useAnimatedStyle(() => ({ transform: [{ scale: s.value }] }));
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={() => { s.set(withTiming(0.97, { duration: 120 })); }}
+      onPressOut={() => { s.set(withSpring(1, { damping: 14, stiffness: 220 })); }}>
+      <Animated.View style={[anim, style]}>{children}</Animated.View>
+    </Pressable>
+  );
+}
+
+/** Fades and lifts its children in after `delay` ms. */
+export function Reveal({ children, delay = 0, style }: { children: ReactNode; delay?: number; style?: StyleProp<ViewStyle> }) {
+  const p = useSharedValue(0);
+  useEffect(() => {
+    p.set(withDelay(delay, withTiming(1, { duration: 520, easing: Easing.out(Easing.cubic) })));
+  }, [p, delay]);
+  const anim = useAnimatedStyle(() => ({ opacity: p.value, transform: [{ translateY: (1 - p.value) * 14 }] }));
+  return <Animated.View style={[anim, style]}>{children}</Animated.View>;
 }
 
 // ─── Buttons ───────────────────────────────────────────────────────────
@@ -132,11 +259,11 @@ export function TextTabs<K extends string>({ items, value, onChange }: { items: 
 
 // ─── Domain bits ───────────────────────────────────────────────────────
 
-export function Avatar({ name, size = 44 }: { name: string; size?: number }) {
-  const initials = name.split(' ').map((p) => p[0]).slice(0, 2).join('');
+export function Avatar({ seller, size = 44, ring }: { seller: Pick<Seller, 'name' | 'photo'>; size?: number; ring?: boolean }) {
   return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors.forestSoft, alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ fontFamily: fonts.serif, fontSize: size * 0.4, color: colors.forest }}>{initials}</Text>
+    <View style={[{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors.forestSoft, overflow: 'hidden' },
+      ring && { borderWidth: 2, borderColor: colors.bg }]}>
+      <Image source={{ uri: `${photoUrl(seller.photo, size, size)}&crop=faces` }} style={{ width: '100%', height: '100%' }} transition={200} />
     </View>
   );
 }
@@ -148,7 +275,7 @@ export function Verified({ size = 14 }: { size?: number }) {
 export function SellerRow({ seller }: { seller: Seller }) {
   return (
     <Row gap={14}>
-      <Avatar name={seller.name} />
+      <Avatar seller={seller} size={48} />
       <View style={{ flex: 1, gap: 2 }}>
         <Row gap={5}>
           <T variant="strong">{seller.name}</T>
@@ -183,6 +310,13 @@ const styles = StyleSheet.create({
   buttonSm: { height: 38, borderRadius: 12, paddingHorizontal: 16 },
   buttonText: { fontFamily: fonts.sansSemi, fontSize: 16, letterSpacing: -0.1 },
   iconButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  heart: { backgroundColor: 'rgba(255,255,255,0.92)', alignItems: 'center', justifyContent: 'center' },
+  burstDot: { position: 'absolute', width: 5, height: 5, borderRadius: 3, backgroundColor: colors.danger },
+  livePill: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6,
+  },
+  livePillText: { fontFamily: fonts.sansSemi, fontSize: 12, color: colors.ink },
   chip: {
     height: 38, paddingHorizontal: 15, borderRadius: 999, borderWidth: 1, borderColor: colors.lineStrong,
     backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center',
