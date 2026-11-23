@@ -3,7 +3,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
-import { Button, ItemImage, LineItem, Row, Rule, T } from '@/components/ui';
+import { Button, Photo, LineItem, Row, Rule, T } from '@/components/ui';
 import { breakdown, money } from '@/data/fees';
 import { shortName, statusText, useStore } from '@/store';
 import { colors, hairline, space } from '@/theme';
@@ -25,7 +25,7 @@ export default function OrderScreen() {
   return (
     <ScrollView style={{ backgroundColor: colors.bg }} contentContainerStyle={{ padding: space.gutter, paddingBottom: 60, gap: 24 }}>
       <Row gap={14}>
-        <ItemImage icon={listing.icon} backdrop={listing.backdrop} iconSize={34} radius={14} style={{ width: 78, height: 78 }} />
+        <Photo id={listing.photo} backdrop={listing.backdrop} width={78} height={78} radius={14} />
         <View style={{ flex: 1, gap: 3 }}>
           <T variant="label" color={status.color}>{status.label}</T>
           <T variant="heading">{listing.title}</T>

@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Avatar, ItemImage, Row, Rule, T, Verified, type FeatherName } from '@/components/ui';
+import { Avatar, Photo, Row, Rule, T, Verified, type FeatherName } from '@/components/ui';
 import { money } from '@/data/fees';
 import type { Listing } from '@/data/types';
 import { postedText, useStore } from '@/store';
@@ -18,7 +18,7 @@ export default function ProfileScreen() {
   return (
     <ScrollView style={{ backgroundColor: colors.bg }} contentContainerStyle={{ paddingTop: insets.top + 24, paddingBottom: 48 }}>
       <View style={{ paddingHorizontal: space.gutter, alignItems: 'center', gap: 8 }}>
-        <Avatar name={me.name} size={84} />
+        <Avatar seller={me} size={88} />
         <Row gap={6} style={{ marginTop: 8 }}>
           <T variant="title">{me.name}</T>
           <Verified size={18} />
@@ -38,7 +38,7 @@ export default function ProfileScreen() {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: space.gutter, gap: 14 }}>
         {store.mine.map((l) => (
           <Pressable key={l.id} onPress={() => router.push({ pathname: '/listing/[id]', params: { id: l.id } })} style={{ width: 150, gap: 4 }}>
-            <ItemImage icon={l.icon} backdrop={l.backdrop} iconSize={46} radius={16} style={{ width: 150, height: 160 }} />
+            <Photo id={l.photo} backdrop={l.backdrop} width={150} height={160} radius={16} />
             <T variant="item" numberOfLines={1} style={{ marginTop: 6 }}>{l.title}</T>
             <T variant="small">{money(l.price)} · {l.watchers} watching</T>
             <T variant="small">{postedText(l)}</T>
@@ -56,7 +56,7 @@ export default function ProfileScreen() {
               {i > 0 ? <Rule /> : null}
               <Pressable onPress={() => router.push({ pathname: '/listing/[id]', params: { id: l.id } })} style={{ paddingVertical: 12 }}>
                 <Row gap={14}>
-                  <ItemImage icon={l.icon} backdrop={l.backdrop} iconSize={24} radius={10} style={{ width: 52, height: 52 }} />
+                  <Photo id={l.photo} backdrop={l.backdrop} width={52} height={52} radius={10} />
                   <T variant="item" style={{ flex: 1 }} numberOfLines={1}>{l.title}</T>
                   <T variant="price">{money(l.price)}</T>
                 </Row>
